@@ -265,7 +265,7 @@ class TrojanConnectionServer(threading.Thread):
                 connection.sendall(str.encode(trojanserver.port))
 
 
-class TrojanFlowServer:
+class TrojanFlowControlServer:
     """
     The TrojanFlowServer being the main object managing the System on the Raspberry Pi server. It contains the
     PortManagement Thread, the TrojanConnectionServer Thread and the dictionary containing the server connections to
@@ -308,6 +308,9 @@ class TrojanFlowServer:
                 command = self.user_server.receive()
                 if command == "available":
                     self.user_server.send(self._available_trojans())
+                    self.user_server.send(self.user_server.end_seq)
+                elif command == "ping":
+                    self.user_server.send("ping")
                     self.user_server.send(self.user_server.end_seq)
                 else:
                     for name in self._list_adressed_trojans(command):
@@ -359,5 +362,5 @@ class TrojanFlowServer:
         return temp_string
 
 if __name__ == '__main__':
-    server = TrojanFlowServer()
+    server = TrojanFlowControlServer()
     server.run()
