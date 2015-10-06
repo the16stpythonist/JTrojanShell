@@ -73,7 +73,7 @@ class TrojanMessage(Message):
 
     def __init__(self, string):
         self.type = ""
-        self.string = string.replace("\\r\\n", "\n")
+        self.string = string.replace("\\r\\n", "\n").replace("\\n", "\n")
         self.message = ""
         # creating the message string with the colors and symbols according
         if self.string[0:3] == "[!]":

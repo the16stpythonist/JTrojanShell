@@ -10,7 +10,7 @@ def run(process):
     shell = process.shell
     if isinstance(shell, TrojanShell):
         # checking whether there is a trojan connected to the shell
-        if len(shell.trojanregister) >= 1:
+        if len(shell.client.available) >= 1:
             shellprint(process, Message("process", "now entering command mode..."))
             commandshell = CommandShell(shell)
             commandshell.run()

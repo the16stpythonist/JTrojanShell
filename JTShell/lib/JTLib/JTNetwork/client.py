@@ -64,7 +64,8 @@ class TCPClient(threading.Thread):
                 self.receiving_socket.bind(("0.0.0.0", 8887))
                 self.receiving_socket.listen(10)
                 self.connected = True
-            except socket.error:
+            except socket.error as e:
+                print(str(e))
                 self.connected = False
             finally:
                 count += 1
@@ -75,13 +76,14 @@ class TCPClient(threading.Thread):
         :param string: (string) the data that is to be send
         :return: (void)
         """
-        # creating a new client socket to send the data passed to the method
-        self.sending_socket = socket.socket()
-        self.sending_socket.connect((self.ip, 8889))
-        # sending the data string via the sending socket
-        self.sending_socket.sendall(str.encode(string))
-        # closing the client socket after the data has been sent
-        self.sending_socket.close()
+        if self.connected is True:
+            # creating a new client socket to send the data passed to the method
+            self.sending_socket = socket.socket()
+            self.sending_socket.connect((self.ip, 8889))
+            # sending the data string via the sending socket
+            self.sending_socket.sendall(str.encode(string))
+            # closing the client socket after the data has been sent
+            self.sending_socket.close()
 
     def receive(self):
         """

