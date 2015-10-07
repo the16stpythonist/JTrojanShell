@@ -10,7 +10,7 @@ def run(process):
     shell = process.shell
     if isinstance(shell, TrojanShell):
         # checking whether there is a trojan connected to the shell
-        if len(shell.trojanregister) >= 1:
+        if len(shell.client.cache) >= 1:
             shellprint(process, Message("process", "now entering script mode..."))
             # entering the sub shell of the script mode
             scriptshell = ScriptShell("scripts", shell)

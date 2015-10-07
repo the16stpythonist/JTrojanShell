@@ -1,6 +1,7 @@
 __author__ = 'Jonas'
 import JTShell.util.colors as colors
 from JTShell.util.message import Message
+from JTShell.util.ansi import Colors
 import inspect
 import os
 
@@ -75,13 +76,15 @@ class TrojanMessage(Message):
         self.type = ""
         self.string = string.replace("\\r\\n", "\n").replace("\\n", "\n")
         self.message = ""
+        self.trojan_name = self.string[1:self.string.find("]")]
+        self.trojan_content = self.string[self.string.find("]")+1:]
         # creating the message string with the colors and symbols according
-        if self.string[0:3] == "[!]":
-            self.message = colors.red(str(self.string))
+        if self.trojan_content[0:3] == "[!]":
+            self.message = "\nAnswer from " + Colors.BLUE + self.trojan_name + "\n" + Colors.RED + self.trojan_content + Colors.WHITE
             self.type = "error"
-        elif self.string[0:3] == "[*]":
-            self.message = colors.white(str(self.string))
+        elif self.trojan_content[0:3] == "[*]":
+            self.message = "\nAnswer from " + Colors.BLUE + self.trojan_name + "\n" + Colors.WHITE + self.trojan_content + Colors.WHITE
             self.type = "process"
-        elif self.string[0:3] == "[+]":
-            self.message = colors.green(str(self.string))
+        elif self.trojan_content[0:3] == "[+]":
+            self.message = "\nAnswer from " + Colors.BLUE + self.trojan_name + "\n" + Colors.GREEN + self.trojan_content + Colors.WHITE
             self.type = "result"

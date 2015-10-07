@@ -29,7 +29,7 @@ class TrojanShell(Shell):
         execute the issued command
         :return: (void)
         """
-        time.sleep(0.2)
+        time.sleep(0.5)
         # checking fot the Server status, on default everything should work though
         if self.client.ping() is True:
             self.client.update()

@@ -67,7 +67,7 @@ class FlowControlClient(TCPClient):
         # blocking with a while loop until a reply has arrived
         while len(self.receive_buffer) == 0:
             time.sleep(0.01)
-        return self.receive()
+        return self.receive_all()
 
     def add(self, *names):
         """

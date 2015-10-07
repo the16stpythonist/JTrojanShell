@@ -323,7 +323,7 @@ class TrojanFlowControlServer:
                             trojanserver = self.trojans[name]
                             trojanserver.send(self._command_only(command))
                             reply = trojanserver.receive()
-                            self.user_server.send(reply)
+                            self.user_server.send("[{0}]{1}".format(trojanserver.name, reply))
                     self.user_server.send(self.user_server.end_seq)
 
     def _available_trojans(self):
