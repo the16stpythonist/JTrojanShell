@@ -312,6 +312,7 @@ class TrojanFlowControlServer:
                 while len(self.user_server.receive_buffer) == 0:
                     time.sleep(0.001)
                 command = self.user_server.receive()
+                print(command)
                 if command == "available":
                     self.user_server.send(self._available_trojans())
                     self.user_server.send(self.user_server.end_seq)
@@ -323,6 +324,7 @@ class TrojanFlowControlServer:
                             trojanserver = self.trojans[name]
                             trojanserver.send(self._command_only(command))
                             reply = trojanserver.receive()
+                            print(reply)
                             self.user_server.send("[{0}]{1}".format(trojanserver.name, reply))
                     self.user_server.send(self.user_server.end_seq)
 

